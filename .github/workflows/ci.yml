@@ -55,7 +55,9 @@ jobs:
         id: test-action
         uses: ./
         with:
-          milliseconds: 2000
+          applet-slug: hello-world
+          filename: main.ts
+          input: '{"worldString": "Test Action"}'
 
       - name: Print Output
         id: output
