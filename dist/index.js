@@ -24733,22 +24733,34 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
-const wait_1 = __nccwpck_require__(5259);
+const client_js_1 = __nccwpck_require__(1457);
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 async function run() {
     try {
-        const ms = core.getInput('milliseconds');
+        const appletSlug = core.getInput('applet-slug');
+        let filename = core.getInput('filename');
+        filename = filename === '' ? 'main.ts' : filename;
+        const inputs = core.getInput('inputs');
+        const inputsJSON = JSON.parse(inputs === '' ? '{}' : inputs);
+        const awaitInput = core.getInput('await');
+        const shouldAwait = awaitInput === 'true' || awaitInput === '';
+        const zaat = core.getInput('zipper-access-token');
         // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-        core.debug(`Waiting ${ms} milliseconds ...`);
-        // Log the current timestamp, wait, then log the new timestamp
-        core.debug(new Date().toTimeString());
-        await (0, wait_1.wait)(parseInt(ms, 10));
-        core.debug(new Date().toTimeString());
-        // Set outputs for other workflow steps to use
-        core.setOutput('time', new Date().toTimeString());
+        core.debug(`Running ${appletSlug}/${filename} with ${Object.keys(inputsJSON).length} inputs`);
+        const zipperClient = (0, client_js_1.initApplet)(appletSlug, {
+            token: zaat === '' ? undefined : zaat
+        }).path(filename);
+        if (shouldAwait) {
+            const res = await zipperClient.run(inputsJSON);
+            core.setOutput('result', JSON.stringify(res));
+        }
+        else {
+            zipperClient.run(inputsJSON);
+            core.setOutput('result', true);
+        }
     }
     catch (error) {
         // Fail the workflow run if an error occurs
@@ -24757,31 +24769,6 @@ async function run() {
     }
 }
 exports.run = run;
-
-
-/***/ }),
-
-/***/ 5259:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = void 0;
-/**
- * Wait for a number of milliseconds.
- * @param milliseconds The number of milliseconds to wait.
- * @returns {Promise<string>} Resolves with 'done!' after the wait is over.
- */
-async function wait(milliseconds) {
-    return new Promise(resolve => {
-        if (isNaN(milliseconds)) {
-            throw new Error('milliseconds not a number');
-        }
-        setTimeout(() => resolve('done!'), milliseconds);
-    });
-}
-exports.wait = wait;
 
 
 /***/ }),
@@ -26625,6 +26612,264 @@ function parseParams (str) {
 }
 
 module.exports = parseParams
+
+
+/***/ }),
+
+/***/ 1609:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports["default"] = {
+    "name": "@zipper-inc/client-js",
+    "version": "0.1.7",
+    "description": "An easy way to interact with Zipper Applets from anywhere that supports ESM, CommonJS, or TypeScript.",
+    "main": "./dist/script/src/index.js",
+    "types": "./dist/types/src/index.d.ts",
+    "author": "Zipper",
+    "license": "MIT",
+    "scripts": {
+        "build": "deno task build",
+        "dev": "deno task watch"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zipper-inc/client-js.git"
+    },
+    "bugs": {
+        "url": "https://github.com/zipper-inc/client-js.git"
+    }
+};
+
+
+/***/ }),
+
+/***/ 6161:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.initApplet = void 0;
+const constants_js_1 = __nccwpck_require__(6434);
+const url_js_1 = __nccwpck_require__(4363);
+class Applet {
+    constructor(indentifier, options) {
+        Object.defineProperty(this, "baseUrl", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "isDebugMode", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "token", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        this.baseUrl = (0, url_js_1.getBaseUrlFromIndentifier)(indentifier, options?.overrideZipperRunUrl);
+        this.isDebugMode = !!options?.debug;
+        if (options?.token)
+            this.token = options.token;
+        this.debug('Applet.constructor', {
+            indentifier,
+            baseUrl: this.baseUrl,
+            options: { ...options, token: options?.token ? '*****' : undefined },
+        });
+    }
+    debug(...args) {
+        if (this.isDebugMode)
+            console.log(`${constants_js_1.LOG_PREFIX} DEBUG`, ...args);
+    }
+    get url() {
+        return this.baseUrl.toString();
+    }
+    /**
+     * Runs the applet at a given path with given inputs
+     */
+    async run(pathOrInputs, maybeInputs) {
+        const firstArgIsPath = !!(pathOrInputs && typeof pathOrInputs === 'string');
+        const path = firstArgIsPath ? pathOrInputs : 'main.ts';
+        const inputs = maybeInputs ? maybeInputs : pathOrInputs;
+        this.debug('Applet.run', {
+            path,
+            inputs,
+        });
+        const runUrl = new URL(this.url);
+        runUrl.pathname = [path, 'api'].join('/');
+        let body = '{}';
+        if (inputs) {
+            try {
+                body = JSON.stringify(inputs);
+            }
+            catch (_e) {
+                throw new Error(`${constants_js_1.LOG_PREFIX} Applet inputs could not be serialized`);
+            }
+        }
+        const headers = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Zipper-Client-Version': constants_js_1.__VERSION__,
+        };
+        if (this.token) {
+            headers.Authorization = `Bearer ${this.token}`;
+        }
+        this.debug('Applet.run fetch', {
+            runUrl,
+            headers: {
+                ...headers,
+                Authorization: headers.Authorization ? '******' : undefined,
+            },
+            body,
+        });
+        const response = await fetch(runUrl, {
+            method: 'POST',
+            headers,
+            body,
+        })
+            .then((r) => r.json())
+            .catch((e) => ({
+            ok: false,
+            error: [
+                'Applet could not complete fetch',
+                e?.toString() || 'Unknown error',
+            ].join(' -- '),
+        }));
+        const { ok, data, error } = response;
+        if (!ok) {
+            this.debug('Applet.run not ok', {
+                data,
+                error,
+                path,
+                inputs,
+                body,
+            });
+            throw new Error(`${constants_js_1.LOG_PREFIX} Response was not ok | ${error || 'Unknown error'}`);
+        }
+        this.debug('Applet.run ok', { ok, data });
+        return data;
+    }
+    /**
+     * Chain syntax to run the applet a given path
+     */
+    path(path) {
+        this.debug('Applet.path', { path });
+        return {
+            url: [this.baseUrl + path].join('/'),
+            run: (inputs) => this.run(path, inputs),
+        };
+    }
+}
+/**
+ * Create an Applet instance with the Zipper Client
+ * @param identifier - The applet's *.zipper.run name or the entire zipper.run url
+ * @param options - Options of how to interact with this applet
+ */
+const initApplet = (identifier, options) => new Applet(identifier, options);
+exports.initApplet = initApplet;
+
+
+/***/ }),
+
+/***/ 6434:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.LOG_PREFIX = exports.DEFAULT_ZIPPER_DOT_RUN_HOST = exports.__VERSION__ = void 0;
+const package_js_1 = __importDefault(__nccwpck_require__(1609));
+exports.__VERSION__ = package_js_1.default.version;
+exports.DEFAULT_ZIPPER_DOT_RUN_HOST = 'zipper.run';
+exports.LOG_PREFIX = `[@zipper-inc/client-js]`;
+
+
+/***/ }),
+
+/***/ 1457:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__nccwpck_require__(6161), exports);
+
+
+/***/ }),
+
+/***/ 4363:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getBaseUrlFromIndentifier = void 0;
+const constants_js_1 = __nccwpck_require__(6434);
+function getBaseUrlFromIndentifier(identifier, overrideZipperRunUrl) {
+    let url;
+    let port;
+    // If the identifier is a URL, we have what we need
+    // Note: If the URL is not a zipper.run applet, it will def fail
+    try {
+        // Remove anything that looks like a port temporarily since it confuses the URL parser
+        // We'll add it back later
+        const portMatch = identifier.match(/:[0-9]+$/);
+        if (portMatch) {
+            port = portMatch[0];
+            identifier = identifier.replace(port, '');
+        }
+        url = new URL(identifier);
+        // In this case, identifier is a full URL
+        if (overrideZipperRunUrl) {
+            const override = new URL(overrideZipperRunUrl);
+            const subdomain = url.host.split('.')[0];
+            const newUrl = new URL(`${override.protocol}//${subdomain}.${override.host}`);
+            // Here, we gonna use the port from the override
+            return newUrl;
+        }
+        return new URL(`${url.origin}${port || ''}`);
+    }
+    catch (_e) {
+        // Identifier is not a URL, but if it looks like a host, we can add a protocol, other let's assume it's a slug
+        url = /\.|:/.test(identifier)
+            ? new URL(`https://${identifier}`)
+            : new URL(`https://${identifier}.${constants_js_1.DEFAULT_ZIPPER_DOT_RUN_HOST}`);
+    }
+    // If we have an override, we need to use it, the identifier itself is our subdomain
+    if (overrideZipperRunUrl) {
+        const override = new URL(overrideZipperRunUrl);
+        url = new URL(`${override.protocol}//${identifier}.${override.host}`);
+        // Here, we gonna use the port from the override
+        return new URL(url.origin);
+    }
+    return new URL(`${url.origin}${port || ''}`);
+}
+exports.getBaseUrlFromIndentifier = getBaseUrlFromIndentifier;
 
 
 /***/ })

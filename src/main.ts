@@ -28,15 +28,13 @@ export async function run(): Promise<void> {
 
     const zipperClient = initApplet(appletSlug, {
       token: zaat === '' ? undefined : zaat
-    })
-
-    const resPromise = zipperClient.path(filename).run
+    }).path(filename)
 
     if (shouldAwait) {
-      const res = await resPromise(inputsJSON)
+      const res = await zipperClient.run(inputsJSON)
       core.setOutput('result', JSON.stringify(res))
     } else {
-      resPromise(inputsJSON)
+      zipperClient.run(inputsJSON)
       core.setOutput('result', true)
     }
   } catch (error) {
