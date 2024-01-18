@@ -57,7 +57,7 @@ jobs:
         with:
           applet-slug: hello-world
           filename: main.ts
-          input: '{"worldString": "Test Action"}'
+          inputs: '{"worldString": "Test Action"}'
 
       - name: Print Output
         id: output
