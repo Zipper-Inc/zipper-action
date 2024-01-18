@@ -1,23 +1,45 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Zipper Action'
+description:
+  'Run any Zipper project from a GitHub Action, which really means you can run
+  arbitrary Typescript functions in serverless environment. Easy to test and
+  update outside of GitHub Actions.'
+author: 'Zipper'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
-  color: 'red'
+  icon: 'zap'
+  color: 'purple'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  applet-slug:
+    description: 'The slug of the Zipper Applet you want to run'
     required: true
-    default: '1000'
+  filename:
+    description: 'The handler that you want to run. Defaults to main.ts'
+    required: false
+    default: 'main.ts'
+  inputs:
+    descriptions:
+      'A JSON object of the inputs you want to send to the handler function.'
+    required: true
+  zipper-access-token:
+    description:
+      'A Zipper Applet access token that has permission to run the applet (if it
+      requires auth)'
+    required: false
+  await:
+    description:
+      'Awaits the handler function before completing the GitHub Action run'
+    required: false
+    default: true
 
 # Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
+  result:
+    description:
+      'The result of your applet run. Returns a boolean status if `await` is
+      false.'
 
 runs:
   using: node20

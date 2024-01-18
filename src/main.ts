@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import { initApplet } from '@zipper-inc/client-js'
 
 /**
  * The main function for the action.
@@ -7,18 +7,38 @@ import { wait } from './wait'
  */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    const appletSlug: string = core.getInput('applet-slug')
+
+    let filename: string = core.getInput('filename')
+    filename = filename === '' ? 'main.ts' : filename
+
+    const inputs: string = core.getInput('inputs')
+    const inputsJSON = JSON.parse(inputs === '' ? '{}' : inputs)
+
+    const awaitInput: string = core.getInput('await')
+    const shouldAwait = awaitInput === 'true' || awaitInput === ''
+    const zaat: string = core.getInput('zipper-access-token')
 
     // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    core.debug(
+      `Running ${appletSlug}/${filename} with ${
+        Object.keys(inputsJSON).length
+      } inputs`
+    )
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const zipperClient = initApplet(appletSlug, {
+      token: zaat === '' ? undefined : zaat
+    })
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    const resPromise = zipperClient.path(filename).run
+
+    if (shouldAwait) {
+      const res = await resPromise(inputsJSON)
+      core.setOutput('result', JSON.stringify(res))
+    } else {
+      resPromise(inputsJSON)
+      core.setOutput('result', true)
+    }
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)

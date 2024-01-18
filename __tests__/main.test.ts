@@ -37,8 +37,8 @@ describe('action', () => {
     // Set the action's inputs as return values from core.getInput()
     getInputMock.mockImplementation((name: string): string => {
       switch (name) {
-        case 'milliseconds':
-          return '500'
+        case 'applet-slug':
+          return 'hello-world'
         default:
           return ''
       }
@@ -48,19 +48,14 @@ describe('action', () => {
     expect(runMock).toHaveReturned()
 
     // Verify that all of the core library functions were called correctly
-    expect(debugMock).toHaveBeenNthCalledWith(1, 'Waiting 500 milliseconds ...')
     expect(debugMock).toHaveBeenNthCalledWith(
-      2,
-      expect.stringMatching(timeRegex)
-    )
-    expect(debugMock).toHaveBeenNthCalledWith(
-      3,
-      expect.stringMatching(timeRegex)
+      1,
+      'Running hello-world/main.ts with 0 inputs'
     )
     expect(setOutputMock).toHaveBeenNthCalledWith(
       1,
-      'time',
-      expect.stringMatching(timeRegex)
+      'result',
+      expect.stringMatching('Hello world')
     )
     expect(errorMock).not.toHaveBeenCalled()
   })
@@ -69,8 +64,8 @@ describe('action', () => {
     // Set the action's inputs as return values from core.getInput()
     getInputMock.mockImplementation((name: string): string => {
       switch (name) {
-        case 'milliseconds':
-          return 'this is not a number'
+        case 'applet-slug':
+          return Date.now().toString()
         default:
           return ''
       }
@@ -82,7 +77,7 @@ describe('action', () => {
     // Verify that all of the core library functions were called correctly
     expect(setFailedMock).toHaveBeenNthCalledWith(
       1,
-      'milliseconds not a number'
+      '[@zipper-inc/client-js] Response was not ok | NOT_FOUND'
     )
     expect(errorMock).not.toHaveBeenCalled()
   })
